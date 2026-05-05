@@ -12,42 +12,42 @@ echo "🔨 BUILD ORBIK LAUNCHER"
 echo "========================"
 
 rm -rf $BUILD_DIR
-mkdir -p $BUILD_DIR/classes
-mkdir -p /storage/emulated/0/APP_AS
+mkdir -p $BUILD_DIR/{classes,gen}
+mkdir -p $(dirname $OUTPUT)
 
-echo "⚙️  Compile Java..."
+# 1. Tạo R.java
+echo "📝 [1/4] Tạo R.java..."
+aapt package -f -m \
+    -J $BUILD_DIR/gen/ \
+    -M $SRC_DIR/AndroidManifest.xml \
+    -S $SRC_DIR/res/ \
+    -I $ANDROID_JAR || exit 1
+
+# 2. Compile Java
+echo "⚙️  [2/4] Compile Java..."
 javac -source 1.8 -target 1.8 \
     -d $BUILD_DIR/classes/ \
     -cp $ANDROID_JAR \
-    -bootclasspath $ANDROID_JAR \
-    $SRC_DIR/java/com/orbik/launcher/*.java
+    $SRC_DIR/java/com/orbik/launcher/*.java \
+    $BUILD_DIR/gen/com/orbik/launcher/R.java || exit 1
 
-if [ $? -ne 0 ]; then
-    echo "❌ Compile thất bại"
-    exit 1
-fi
+# 3. Tạo DEX
+echo "📦 [3/4] Tạo DEX..."
+dx --dex --output=$BUILD_DIR/classes.dex $BUILD_DIR/classes/ || exit 1
 
-echo "📦 Tạo DEX..."
-dx --dex --output=$BUILD_DIR/classes.dex $BUILD_DIR/classes/
+# 4. Đóng gói & Ký APK
+echo "📱 [4/4] Đóng gói & Ký..."
 
-if [ $? -ne 0 ]; then
-    echo "❌ DEX thất bại"
-    exit 1
-fi
-
-echo "📱 Đóng gói APK..."
 aapt package -f \
     -M $SRC_DIR/AndroidManifest.xml \
     -S $SRC_DIR/res/ \
     -I $ANDROID_JAR \
     -F $BUILD_DIR/app-unsigned.apk
 
-# Chỉ thêm classes.dex, icon và wallpaper đã được aapt thêm tự động
 cd $BUILD_DIR
 aapt add app-unsigned.apk classes.dex
 cd ..
 
-echo "🔐 Ký APK..."
 apksigner sign \
     --ks $KEYSTORE \
     --ks-pass pass:"$PASS" \
@@ -56,12 +56,10 @@ apksigner sign \
     --out "$OUTPUT" \
     $BUILD_DIR/app-unsigned.apk
 
-if [ $? -eq 0 ]; then
-    echo ""
+if [ -f "$OUTPUT" ]; then
     echo "✅ BUILD THÀNH CÔNG!"
-    echo "📱 APK: $OUTPUT"
-    echo "📦 Size: $(du -h "$OUTPUT" | cut -f1)"
+    echo "📱 $OUTPUT"
 else
-    echo "❌ Ký thất bại"
+    echo "❌ Thất bại"
     exit 1
 fi
