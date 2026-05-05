@@ -23,7 +23,6 @@ import android.os.Handler;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -47,7 +46,6 @@ import java.util.Locale;
 import java.util.Map;
 
 public class MainActivity extends Activity {
-    private static final String TAG = "AppListener";
     private static final int GRID_COLUMNS = 3;
     private static final int REQUEST_PICK_WALLPAPER = 300;
     
@@ -68,12 +66,8 @@ public class MainActivity extends Activity {
         hideStatusBar();
         wallpaperFile = new File(getFilesDir(), "wallpaper.jpg");
         packageManager = getPackageManager();
-        
-        // Kiểm tra ngôn ngữ hệ thống
         Locale locale = getResources().getConfiguration().locale;
-        String lang = locale.getLanguage();
-        isEnglish = lang.equals("en");
-        
+        isEnglish = locale.getLanguage().equals("en");
         setupUI();
         loadWallpaper();
         loadApps();
@@ -92,8 +86,7 @@ public class MainActivity extends Activity {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        Locale locale = newConfig.locale;
-        isEnglish = locale.getLanguage().equals("en");
+        isEnglish = newConfig.locale.getLanguage().equals("en");
         if (!appList.isEmpty()) displayApps();
     }
 
@@ -104,12 +97,10 @@ public class MainActivity extends Activity {
         if (gridLayout.getChildCount() == 0 && !appList.isEmpty()) displayApps();
     }
 
-    // ========== STRINGS ==========
     private String s(String vi, String en) {
         return isEnglish ? en : vi;
     }
 
-    // ========== WALLPAPER ==========
     private void loadWallpaper() {
         if (wallpaperFile.exists()) {
             try {
@@ -203,30 +194,23 @@ public class MainActivity extends Activity {
         return scaled;
     }
 
-    // ========== APP MỤC TIÊU ==========
     private String getWallpaperAppPackage() {
         if (!appList.isEmpty()) return appList.get(0).packageName;
         return null;
     }
 
-    // ========== LOAD APPS ==========
     private void loadApps() {
         new Thread(new Runnable() { @Override public void run() {
             List<AppInfo> list = new ArrayList<>();
             Intent intent = new Intent(Intent.ACTION_MAIN, null);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);
             List<ResolveInfo> riList = packageManager.queryIntentActivities(intent, 0);
-            
-            StringBuilder logBuilder = new StringBuilder("====APPS====\n");
             for (ResolveInfo ri : riList) {
                 String pkg = ri.activityInfo.packageName;
                 if (pkg.equals(getPackageName())) continue;
                 list.add(new AppInfo(ri.loadLabel(packageManager).toString(), pkg, ri));
                 try { iconCache.put(pkg, ri.loadIcon(packageManager)); } catch (Exception e) {}
-                logBuilder.append("en=Input application; vi=Ứng dụng đầu vào: ").append(pkg).append("\n");
             }
-            Log.d(TAG, logBuilder.toString());
-            
             Collections.sort(list, new Comparator<AppInfo>() {
                 public int compare(AppInfo a, AppInfo b) { return a.appName.compareToIgnoreCase(b.appName); }
             });
@@ -235,7 +219,6 @@ public class MainActivity extends Activity {
         }}).start();
     }
 
-    // ========== DISPLAY ==========
     private void displayApps() {
         if (gridLayout == null || appList.isEmpty()) return;
         gridLayout.removeAllViews();
